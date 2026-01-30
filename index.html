@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bhaskar Travels - Our Fleet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <header class="bg-[#003399] text-white p-6 text-center shadow-lg border-b-4 border-yellow-400">
+        <h1 class="text-3xl font-black uppercase tracking-widest">Our Professional Fleet</h1>
+        <p class="text-yellow-300 font-bold mt-2">24/7 Reliable Travel Service</p>
+    </header>
+
+    <main class="max-w-5xl mx-auto p-4">
+        <div id="fleet-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC7omObD0cWgdqGsNq-8L7n9i_Akp_JCEM",
+            authDomain: "master-web-app-d8d1b.firebaseapp.com",
+            databaseURL: "https://master-web-app-d8d1b-default-rtdb.firebaseio.com",
+            projectId: "master-web-app-d8d1b",
+            appId: "1:460731698074:web:40ad4f12c5fb3126874823"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const container = document.getElementById('fleet-container');
+
+        // Loop through 20 Taxis
+        for (let i = 1; i <= 20; i++) {
+            const taxiID = 'taxi' + i;
+            onValue(ref(db, taxiID + '/settings'), (snap) => {
+                const data = snap.val();
+                
+                // Only show the card if a Driver Name exists
+                if (data && data.driverName) {
+                    let cardId = `card-${taxiID}`;
+                    let existingCard = document.getElementById(cardId);
+                    
+                    const cardHTML = `
+                        <div id="${cardId}" class="bg-white rounded-2xl shadow-md overflow-hidden border-l-8 border-blue-600 hover:shadow-2xl transition-all">
+                            <div class="p-5">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <h2 class="text-xl font-black text-slate-800 uppercase">${data.driverName}</h2>
+                                        <p class="text-blue-600 font-bold text-sm">${data.taxiModel || 'Vehicle'}</p>
+                                    </div>
+                                    <span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full border border-green-200">AVAILABLE</span>
+                                </div>
+                                
+                                <div class="mt-4 space-y-2 text-sm text-gray-600">
+                                    <p class="flex items-center gap-2"><b>No:</b> ${data.taxiNo}</p>
+                                    <p class="flex items-center gap-2"><b>Contact:</b> ${data.phone}</p>
+                                </div>
+
+                                <div class="mt-5 flex gap-2">
+                                    <a href="https://bhaskar28051975-ctrl.github.io/${taxiID}/" 
+                                       class="flex-1 bg-blue-600 text-white text-center py-2 rounded-lg font-bold text-xs uppercase hover:bg-blue-700">View Site</a>
+                                    <a href="https://wa.me/${data.phone.replace(/\D/g,'')}" 
+                                       class="bg-green-500 text-white p-2 rounded-lg hover:bg-green-600">
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.126-.54c1.083.58 1.948.893 3.162.893 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.586-5.766-5.768-5.766z"/></svg>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>`;
+
+                    if (existingCard) {
+                        existingCard.outerHTML = cardHTML;
+                    } else {
+                        container.insertAdjacentHTML('beforeend', cardHTML);
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
