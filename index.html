@@ -40,10 +40,16 @@
             onValue(ref(db, taxiID + '/settings'), (snap) => {
                 const data = snap.val();
                 
-                // Only show the card if a Driver Name exists
+                // Only show the card if a Driver Name exists in Firebase
                 if (data && data.driverName) {
                     let cardId = `card-${taxiID}`;
                     let existingCard = document.getElementById(cardId);
+                    
+                    // CLEAN PHONE NUMBER FOR WHATSAPP
+                    const cleanPhone = data.phone ? data.phone.replace(/\D/g,'') : '';
+
+                    // DYNAMIC LINK: Connects to your driver-page using the ID parameter
+                    const driverSiteUrl = `https://bhaskar28051975-ctrl.github.io/master-web-app/index.html?id=${taxiID}`;
                     
                     const cardHTML = `
                         <div id="${cardId}" class="bg-white rounded-2xl shadow-md overflow-hidden border-l-8 border-blue-600 hover:shadow-2xl transition-all">
@@ -57,16 +63,19 @@
                                 </div>
                                 
                                 <div class="mt-4 space-y-2 text-sm text-gray-600">
-                                    <p class="flex items-center gap-2"><b>No:</b> ${data.taxiNo}</p>
-                                    <p class="flex items-center gap-2"><b>Contact:</b> ${data.phone}</p>
+                                    <p class="flex items-center gap-2"><b>No:</b> ${data.taxiNo || '---'}</p>
+                                    <p class="flex items-center gap-2"><b>Contact:</b> ${data.phone || '---'}</p>
                                 </div>
 
                                 <div class="mt-5 flex gap-2">
-                                    <a href="https://bhaskar28051975-ctrl.github.io/${taxiID}/" 
-                                       class="flex-1 bg-blue-600 text-white text-center py-2 rounded-lg font-bold text-xs uppercase hover:bg-blue-700">View Site</a>
-                                    <a href="https://wa.me/${data.phone.replace(/\D/g,'')}" 
-                                       class="bg-green-500 text-white p-2 rounded-lg hover:bg-green-600">
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.126-.54c1.083.58 1.948.893 3.162.893 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.586-5.766-5.768-5.766z"/></svg>
+                                    <a href="${driverSiteUrl}" 
+                                       class="flex-1 bg-blue-600 text-white text-center py-2 rounded-lg font-bold text-xs uppercase hover:bg-blue-700 transition-colors">View Site</a>
+                                    
+                                    <a href="https://wa.me/${cleanPhone}" 
+                                       class="bg-green-500 text-white p-2 rounded-lg hover:bg-green-600 transition-colors">
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.126-.54c1.083.58 1.948.893 3.162.893 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.586-5.766-5.768-5.766zM12.03 16.94c-1.03 0-1.817-.265-2.61-.762l-.186-.115-1.246.316.324-1.21-.13-.205c-.553-.872-.85-1.85-.85-2.868 0-2.805 2.285-5.09 5.093-5.09s5.09 2.285 5.09 5.09-2.285 5.09-5.093 5.09z"/>
+                                        </svg>
                                     </a>
                                 </div>
                             </div>
