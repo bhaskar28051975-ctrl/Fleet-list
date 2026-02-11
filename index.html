@@ -15,7 +15,7 @@
                     <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </div>
                 <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">Fleet Access</h2>
-                <p class="text-gray-500 text-sm">Please verify your credentials</p>
+                <p class="text-gray-500 text-sm">Agent Login</p>
             </div>
 
             <div id="user-field-area">
@@ -24,22 +24,14 @@
             <input id="pass-input" type="password" placeholder="Password" class="w-full p-4 border-2 rounded-xl mb-6 text-center outline-blue-500 font-bold">
             
             <button id="login-btn" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase shadow-lg active:scale-95 transition-transform">Unlock Fleet</button>
-            
-            <div id="admin-toggle-area" class="mt-6 pt-4 border-t hidden">
-                <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Security Mode Control</p>
-                <select id="security-mode" class="text-xs bg-gray-100 p-2 rounded font-bold outline-none">
-                    <option value="high">User + Pass (High)</option>
-                    <option value="low">Pass Only (Easy)</option>
-                </select>
-            </div>
         </div>
     </div>
 
     <div id="main-content" class="hidden">
         <header class="bg-[#003399] text-white p-6 text-center shadow-lg border-b-4 border-yellow-400 relative">
             <h1 class="text-3xl font-black uppercase tracking-widest">Our Professional Fleet</h1>
-            <p class="text-yellow-300 font-bold mt-2">24/7 Reliable Travel Service</p>
-            <button id="logout-btn" class="absolute right-4 top-4 text-[10px] bg-red-600 px-2 py-1 rounded font-bold uppercase">Logout</button>
+            <p class="text-yellow-300 font-bold mt-2">Agent Portal Access</p>
+            <button onclick="logout()" class="absolute right-4 top-4 text-[10px] bg-red-600 px-2 py-1 rounded font-bold uppercase text-white">Logout</button>
         </header>
 
         <main class="max-w-5xl mx-auto p-4">
@@ -49,7 +41,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyC7omObD0cWgdqGsNq-8L7n9i_Akp_JCEM",
@@ -62,96 +54,67 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // --- LOGIN LOGIC ---
         const loginBtn = document.getElementById('login-btn');
-        const userInput = document.getElementById('user-input');
-        const passInput = document.getElementById('pass-input');
-        const secModeSelect = document.getElementById('security-mode');
-
-        // Check current security mode from Firebase
+        
         get(ref(db, 'admin_config/security_mode')).then((snap) => {
-            const mode = snap.val() || 'high';
-            secModeSelect.value = mode;
-            if(mode === 'low') document.getElementById('user-field-area').style.display = 'none';
+            if(snap.val() === 'low') document.getElementById('user-field-area').style.display = 'none';
         });
 
         loginBtn.onclick = async () => {
-            const u = userInput.value;
-            const p = passInput.value;
-            
-            // Get latest mode
-            const snap = await get(ref(db, 'admin_config/security_mode'));
-            const mode = snap.val() || 'high';
+            const u = document.getElementById('user-input').value.toLowerCase().trim();
+            const p = document.getElementById('pass-input').value;
+            const modeSnap = await get(ref(db, 'admin_config/security_mode'));
+            const mode = modeSnap.val() || 'high';
 
-            if (mode === 'high') {
-                if (u === "admin" && p === "1234") loginOk();
-                else alert("Invalid Username or Password");
+            if (mode === 'low') {
+                if (p === "1234") loginOk(); else alert("Wrong Password");
             } else {
-                if (p === "1234") loginOk();
-                else alert("Invalid Password");
+                let allowed = false;
+                if (u === "admin" && p === "1234") {
+                    allowed = true;
+                } else {
+                    const agentSnap = await get(ref(db, 'agents'));
+                    agentSnap.forEach(child => {
+                        if(child.val().username === u && child.val().password === p) allowed = true;
+                    });
+                }
+                if (allowed) loginOk(); else alert("Invalid Credentials");
             }
         };
 
-        function loginOk() {
-            sessionStorage.setItem("fleet_unlocked", "true");
-            location.reload();
-        }
+        function loginOk() { sessionStorage.setItem("fleet_unlocked", "true"); location.reload(); }
+        window.logout = () => { sessionStorage.removeItem("fleet_unlocked"); location.reload(); };
 
-        // --- UI CONTROL ---
         if (sessionStorage.getItem("fleet_unlocked") === "true") {
             document.getElementById('login-overlay').classList.add('hidden');
             document.getElementById('main-content').classList.remove('hidden');
-            document.getElementById('admin-toggle-area').classList.remove('hidden');
             loadFleet();
         }
 
-        document.getElementById('logout-btn').onclick = () => {
-            sessionStorage.removeItem("fleet_unlocked");
-            location.reload();
-        };
-
-        secModeSelect.onchange = () => {
-            set(ref(db, 'admin_config/security_mode'), secModeSelect.value).then(() => {
-                alert("Security Mode Updated!");
-                location.reload();
-            });
-        };
-
-        // --- DATA LOADING ---
         function loadFleet() {
             const container = document.getElementById('fleet-container');
             for (let i = 1; i <= 20; i++) {
-                const taxiID = 'taxi' + i;
-                onValue(ref(db, taxiID + '/settings'), (snap) => {
+                onValue(ref(db, 'taxi' + i + '/settings'), (snap) => {
                     const data = snap.val();
                     if (data && data.driverName) {
                         const cleanPhone = data.phone ? data.phone.replace(/\D/g,'') : '';
-                        const driverSiteUrl = `index.html?id=${taxiID}`;
+                        const driverSiteUrl = `https://bhaskar28051975-ctrl.github.io/master-web-app/index.html?id=taxi${i}`;
                         
                         const cardHTML = `
-                            <div id="card-${taxiID}" class="bg-white rounded-2xl shadow-md overflow-hidden border-l-8 border-blue-600 p-5">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <h2 class="text-xl font-black text-slate-800 uppercase">${data.driverName}</h2>
-                                        <p class="text-blue-600 font-bold text-sm">${data.taxiModel || 'Vehicle'}</p>
-                                    </div>
-                                    <span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full">${data.vehicleType || 'TAXI'}</span>
-                                </div>
-                                <div class="mt-4 text-sm text-gray-600">
+                            <div id="card-taxi${i}" class="bg-white rounded-2xl shadow-md border-l-8 border-blue-600 p-5">
+                                <h2 class="text-xl font-black text-slate-800 uppercase">${data.driverName}</h2>
+                                <p class="text-blue-600 font-bold text-sm mb-4">${data.taxiModel || 'Vehicle'}</p>
+                                <div class="text-sm text-gray-600 mb-5">
                                     <p><b>No:</b> ${data.taxiNo || '---'}</p>
                                     <p><b>Contact:</b> ${data.phone || '---'}</p>
                                 </div>
-                                <div class="mt-5 flex gap-2">
-                                    <a href="${driverSiteUrl}" class="flex-1 bg-blue-600 text-white text-center py-2 rounded-lg font-bold text-xs uppercase">View Site</a>
-                                    <a href="https://wa.me/${cleanPhone}" class="bg-green-500 text-white p-2 rounded-lg">
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.126-.54c1.083.58 1.948.893 3.162.893 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.586-5.766-5.768-5.766zM12.03 16.94c-1.03 0-1.817-.265-2.61-.762l-.186-.115-1.246.316.324-1.21-.13-.205c-.553-.872-.85-1.85-.85-2.868 0-2.805 2.285-5.09 5.093-5.09s5.09 2.285 5.09 5.09-2.285 5.09-5.093 5.09z"/></svg>
-                                    </a>
+                                <div class="flex gap-2">
+                                    <a href="${driverSiteUrl}" target="_blank" class="flex-1 bg-blue-600 text-white text-center py-2 rounded-lg font-bold text-xs uppercase">View Site</a>
+                                    <a href="https://wa.me/${cleanPhone}" class="bg-green-500 text-white p-2 rounded-lg"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.539 2.016 2.126-.54c1.083.58 1.948.893 3.162.893 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.586-5.766-5.768-5.766zM12.03 16.94c-1.03 0-1.817-.265-2.61-.762l-.186-.115-1.246.316.324-1.21-.13-.205c-.553-.872-.85-1.85-.85-2.868 0-2.805 2.285-5.09 5.093-5.09s5.09 2.285 5.09 5.09-2.285 5.09-5.093 5.09z"/></svg></a>
                                 </div>
                             </div>`;
-                        
-                        let existing = document.getElementById(`card-${taxiID}`);
-                        if (existing) existing.outerHTML = cardHTML;
-                        else container.insertAdjacentHTML('beforeend', cardHTML);
+                        let existing = document.getElementById(`card-taxi${i}`);
+                        if (existing) existing.outerHTML = cardHTML; else container.insertAdjacentHTML('beforeend', cardHTML);
                     }
                 });
             }
