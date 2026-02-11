@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Manager - Bhaskar Travels</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-800">
+
+    <nav class="bg-blue-800 p-4 text-white flex justify-between items-center shadow-xl">
+        <span class="font-black uppercase tracking-widest">Agent Control Panel</span>
+        <a href="fleet.html" class="text-xs bg-blue-600 px-3 py-1 rounded font-bold">Back to Fleet</a>
+    </nav>
+
+    <div class="max-w-md mx-auto p-4">
+        <div class="bg-yellow-400 p-5 rounded-2xl mb-6 shadow-lg border-2 border-yellow-600">
+            <h2 class="font-black text-yellow-900 uppercase text-xs mb-3">Global Security Setting</h2>
+            <select id="security-mode" onchange="updateGlobalSecurity()" class="w-full p-4 rounded-xl font-bold bg-white border-2 border-yellow-700">
+                <option value="high">USER + PASS (Agent Login Required)</option>
+                <option value="low">PASSWORD ONLY (One-Click Mode)</option>
+            </select>
+            <p class="text-[10px] text-yellow-800 mt-2 font-bold leading-tight">Switch to "Password Only" to deactivate individual agent logins instantly.</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-xl border-t-8 border-blue-600 mb-6">
+            <h2 class="font-black text-blue-900 uppercase text-sm mb-4">Register New Agent</h2>
+            <div class="space-y-3">
+                <input id="new-user" type="text" placeholder="Agent Username" class="w-full p-3 border rounded-xl font-bold">
+                <input id="new-pass" type="text" placeholder="Set Password" class="w-full p-3 border rounded-xl font-bold">
+                <input id="agent-phone" type="text" placeholder="Agent WhatsApp (with 91)" class="w-full p-3 border rounded-xl">
+                <button onclick="addAgent()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase shadow-lg">Create & Save Agent</button>
+            </div>
+        </div>
+
+        <div id="agent-list" class="space-y-3">
+            <p class="text-white text-center font-bold text-xs uppercase opacity-50">Loading Agents...</p>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC7omObD0cWgdqGsNq-8L7n9i_Akp_JCEM",
+            authDomain: "master-web-app-d8d1b.firebaseapp.com",
+            projectId: "master-web-app-d8d1b",
+            databaseURL: "https://master-web-app-d8d1b-default-rtdb.firebaseio.com",
+            appId: "1:460731698074:web:40ad4f12c5fb3126874823"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Load Security Mode and Agents
+        window.onload = () => {
+            db.ref('admin_config/security_mode').on('value', (s) => {
+                document.getElementById('security-mode').value = s.val() || 'high';
+            });
+
+            db.ref('agents').on('value', (snap) => {
+                const list = document.getElementById('agent-list');
+                list.innerHTML = `<h3 class="text-white font-black uppercase text-[10px] mb-2 tracking-widest">Active Agents:</h3>`;
+                snap.forEach((child) => {
+                    const agent = child.val();
+                    list.innerHTML += `
+                        <div class="bg-white p-4 rounded-xl flex flex-col gap-2 shadow-md">
+                            <div class="flex justify-between items-center">
+                                <span class="font-black text-blue-900 uppercase">${agent.username}</span>
+                                <button onclick="deleteAgent('${child.key}')" class="text-red-500 font-bold text-[10px]">REMOVE</button>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="sendInvite('${agent.username}', '${agent.password}', '${agent.phone}')" 
+                                    class="flex-1 bg-green-600 text-white py-2 rounded-lg font-bold text-[10px] uppercase">Send to WhatsApp</button>
+                            </div>
+                        </div>`;
+                });
+            });
+        };
+
+        window.updateGlobalSecurity = () => {
+            const mode = document.getElementById('security-mode').value;
+            db.ref('admin_config/security_mode').set(mode).then(() => alert("Global Security Mode Changed!"));
+        };
+
+        window.addAgent = () => {
+            const username = document.getElementById('new-user').value.toLowerCase().trim();
+            const password = document.getElementById('new-pass').value;
+            const phone = document.getElementById('agent-phone').value.replace(/\D/g,'');
+
+            if(username && password) {
+                db.ref('agents').push({ username, password, phone }).then(() => {
+                    alert("Agent Created!");
+                    document.getElementById('new-user').value = "";
+                    document.getElementById('new-pass').value = "";
+                });
+            } else { alert("Fill all fields"); }
+        };
+
+        window.sendInvite = (u, p, ph) => {
+            const msg = `*BHASKAR TRAVELS - AGENT LOGIN*\n\nHello! Here are your credentials for the Fleet Project:\n\n*Username:* ${u}\n*Password:* ${p}\n\nAccess here: ${window.location.href.replace('agent-settings.html', 'fleet.html')}`;
+            window.open(`https://wa.me/${ph}?text=${encodeURIComponent(msg)}`, '_blank');
+        };
+
+        window.deleteAgent = (id) => {
+            if(confirm("Remove this agent?")) db.ref('agents/' + id).remove();
+        };
+    </script>
+</body>
+</html>
