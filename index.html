@@ -10,12 +10,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
-        #map { height: 380px; width: 100%; border-radius: 24px; margin-bottom: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.15); z-index: 10; }
+        #map { height: 400px; width: 100%; border-radius: 24px; margin-bottom: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.15); border: 4px solid white; z-index: 10; }
         .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
         .online { background-color: #22c55e; box-shadow: 0 0 10px #22c55e; animation: pulse 1.5s infinite; }
         .offline { background-color: #ef4444; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .custom-marker { filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5)); }
+        /* మ్యాప్ ఐకాన్ స్టైల్ */
+        .car-marker-icon { filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transform-origin: center; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -43,7 +44,7 @@
             <div class="bg-white p-3 rounded-[32px] shadow-xl mb-6 border border-gray-100">
                 <div class="flex justify-between items-center px-4 py-2">
                     <h3 class="font-black text-slate-700 uppercase flex items-center gap-2 text-sm">
-                        <span class="text-blue-600">📍</span> Nearby Drivers (Real-Time)
+                        <span class="text-blue-600 text-lg">📍</span> Nearby Drivers (Live)
                     </h3>
                 </div>
                 <div id="map"></div>
@@ -69,22 +70,25 @@
 
         let map;
         let markers = {};
+        let driverData = {}; // స్టోర్ డ్రైవర్ డీటెయిల్స్
+
+        // ఐకాన్ సెట్టింగ్
         const carIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png',
-            iconSize: [35, 35],
-            iconAnchor: [17, 17],
-            className: 'custom-marker'
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/854/854878.png', 
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+            popupAnchor: [0, -20],
+            className: 'car-marker-icon'
         });
 
-        // 1. Initialize Leaflet Map (FREE)
         function initMap() {
-            map = L.map('map').setView([13.6288, 79.4192], 13); // Tirupati Default
+            if (map) return;
+            map = L.map('map').setView([13.6288, 79.4192], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap'
             }).addTo(map);
         }
 
-        // 2. Load Fleet Data
         function loadFleet() {
             initMap();
             const container = document.getElementById('fleet-container');
@@ -92,15 +96,16 @@
             for (let i = 1; i <= 20; i++) {
                 const taxiId = 'taxi' + i;
                 
-                // Track Driver Info
+                // 1. డ్రైవర్ పేరు & నంబర్ సెట్టింగ్స్ నుండి తీసుకుంటుంది
                 onValue(ref(db, taxiId + '/settings'), (snap) => {
                     const data = snap.val();
                     if (data && data.driverName) {
+                        driverData[taxiId] = data; // సేవ్ డేటా
                         renderCard(taxiId, data);
                     }
                 });
 
-                // Track Live Location
+                // 2. లైవ్ లొకేషన్ ట్రాకింగ్
                 onValue(ref(db, taxiId + '/location'), (snap) => {
                     const loc = snap.val();
                     if (loc && loc.lat && loc.lng) {
@@ -114,6 +119,7 @@
             const container = document.getElementById('fleet-container');
             const siteUrl = `https://bhaskar28051975-ctrl.github.io/master-web-app/index.html?id=${taxiId}`;
             
+            let card = document.getElementById(`card-${taxiId}`);
             const cardHTML = `
                 <div id="card-${taxiId}" class="bg-white rounded-3xl shadow-lg border-l-[10px] border-blue-600 p-5 transition-all active:scale-95 border border-gray-100">
                     <div class="flex justify-between items-start mb-1">
@@ -129,15 +135,17 @@
                     </div>
                 </div>`;
 
-            let old = document.getElementById(`card-${taxiId}`);
-            if (old) old.outerHTML = cardHTML; 
-            else container.insertAdjacentHTML('beforeend', cardHTML);
+            if (card) {
+                card.outerHTML = cardHTML;
+            } else {
+                container.insertAdjacentHTML('beforeend', cardHTML);
+            }
         }
 
         function updateTracking(taxiId, loc) {
             const now = Date.now();
             const lastSeen = loc.lastSeen || 0;
-            const isOnline = (now - lastSeen) < 120000; // 2 నిమిషాల లోపు అప్‌డేట్ అయితేనే Online
+            const isOnline = (now - lastSeen) < 120000; // 2 నిమిషాలు
 
             const statusEl = document.getElementById(`status-${taxiId}`);
             if (statusEl) {
@@ -148,12 +156,14 @@
                 }
             }
 
+            // మ్యాప్ మీద కారు మార్కర్ అప్‌డేట్
             if (isOnline) {
+                const driver = driverData[taxiId] || { driverName: taxiId };
                 if (markers[taxiId]) {
                     markers[taxiId].setLatLng([loc.lat, loc.lng]);
                 } else {
                     markers[taxiId] = L.marker([loc.lat, loc.lng], { icon: carIcon }).addTo(map)
-                        .bindPopup(`<b style="text-transform:uppercase;">${taxiId}</b>`);
+                        .bindPopup(`<div style="text-align:center;"><b>${driver.driverName}</b><br><span style="font-size:10px; color:blue;">${driver.taxiNo || ''}</span></div>`);
                 }
             } else if (markers[taxiId]) {
                 map.removeLayer(markers[taxiId]);
@@ -166,24 +176,24 @@
                 map.setView(markers[id].getLatLng(), 16);
                 markers[id].openPopup();
             } else { 
-                alert("Driver ప్రస్తుతం ఆఫ్‌లైన్‌లో ఉన్నారు లేదా లొకేషన్ పర్మిషన్ ఇవ్వలేదు."); 
+                alert("డ్రైవర్ ప్రస్తుతం ఆఫ్‌లైన్‌లో ఉన్నారు."); 
             }
         };
 
-        // Login Check
+        // Login Logic
         document.getElementById('login-btn').onclick = async () => {
             const u = document.getElementById('user-input').value.toLowerCase().trim();
             const p = document.getElementById('pass-input').value;
-            const modeSnap = await get(ref(db, 'admin_config/security_mode'));
-            const mode = modeSnap.val() || 'high';
-
-            if (mode === 'low' && p === "1234") loginOk();
-            else if (u === "admin" && p === "1234") loginOk();
-            else {
-                const agents = await get(ref(db, 'agents'));
-                let ok = false;
-                agents.forEach(c => { if(c.val().username === u && c.val().password === p) ok = true; });
-                if(ok) loginOk(); else alert("Invalid Login");
+            
+            if (u === "admin" && p === "1234") {
+                loginOk();
+            } else {
+                const agentsSnap = await get(ref(db, 'agents'));
+                let authorized = false;
+                agentsSnap.forEach(child => {
+                    if(child.val().username === u && child.val().password === p) authorized = true;
+                });
+                if(authorized) loginOk(); else alert("Invalid Login");
             }
         };
 
