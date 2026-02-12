@@ -39,9 +39,15 @@
             <h2 class="font-black text-green-900 uppercase text-sm mb-4">Register New Driver/Taxi</h2>
             <div class="space-y-3">
                 <input id="driver-name" type="text" placeholder="Driver Name" class="w-full p-3 border rounded-xl font-bold">
-                <input id="taxi-type" type="text" placeholder="Taxi Type (e.g., Innova, Swift)" class="w-full p-3 border rounded-xl">
-                <input id="driver-phone" type="text" placeholder="Driver Phone (91...)" class="w-full p-3 border rounded-xl">
-                <button onclick="addDriver()" class="w-full bg-green-600 text-white py-4 rounded-xl font-black uppercase shadow-lg">Save Driver</button>
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="taxi-type" type="text" placeholder="Car Model (Innova)" class="p-3 border rounded-xl">
+                    <input id="taxi-no" type="text" placeholder="Taxi Number (AP39...)" class="p-3 border rounded-xl">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="taxi-capacity" type="number" placeholder="Capacity (e.g. 7)" class="p-3 border rounded-xl">
+                    <input id="driver-phone" type="text" placeholder="Phone (91...)" class="p-3 border rounded-xl">
+                </div>
+                <button onclick="addDriver()" class="w-full bg-green-600 text-white py-4 rounded-xl font-black uppercase shadow-lg">Save Driver Details</button>
             </div>
         </div>
 
@@ -61,7 +67,6 @@
         const db = firebase.database();
 
         window.onload = () => {
-            // Sync Security Mode
             db.ref('admin_config/security_mode').on('value', (s) => {
                 document.getElementById('security-mode').value = s.val() || 'high';
             });
@@ -79,12 +84,12 @@
                                 <button onclick="deleteItem('agents', '${child.key}')" class="text-red-500 font-bold text-[10px]">DELETE</button>
                             </div>
                             <button onclick="sendInvite('${agent.username}', '${agent.password}', '${agent.phone}')" 
-                                class="w-full bg-slate-100 text-blue-800 py-2 rounded-lg font-bold text-[10px] uppercase border border-blue-200">Send Login Details</button>
+                                class="w-full bg-slate-100 text-blue-800 py-2 rounded-lg font-bold text-[10px] uppercase border border-blue-200">Send Details</button>
                         </div>`;
                 });
             });
 
-            // Load Drivers
+            // Load Drivers (Updated Display)
             db.ref('drivers').on('value', (snap) => {
                 const list = document.getElementById('driver-list');
                 list.innerHTML = `<h3 class="text-white font-black uppercase text-[10px] mb-2 tracking-widest">Active Drivers:</h3>`;
@@ -92,12 +97,13 @@
                     const driver = child.val();
                     list.innerHTML += `
                         <div class="bg-white p-4 rounded-xl shadow-md border-l-4 border-green-600">
-                            <div class="flex justify-between items-center">
+                            <div class="flex justify-between items-start">
                                 <div>
-                                    <p class="font-black text-slate-900 uppercase">${driver.name}</p>
-                                    <p class="text-[10px] font-bold text-slate-500">${driver.taxi} | ${driver.phone}</p>
+                                    <p class="font-black text-slate-900 uppercase text-sm">${driver.name}</p>
+                                    <p class="text-[11px] font-bold text-blue-700">${driver.taxi} - ${driver.taxi_no}</p>
+                                    <p class="text-[10px] text-slate-500">Capacity: ${driver.capacity} Seater | 📞 ${driver.phone}</p>
                                 </div>
-                                <button onclick="deleteItem('drivers', '${child.key}')" class="text-red-500 font-bold text-[10px]">DELETE</button>
+                                <button onclick="deleteItem('drivers', '${child.key}')" class="text-red-500 font-bold text-[10px] pt-1">DELETE</button>
                             </div>
                         </div>`;
                 });
@@ -123,15 +129,26 @@
         window.addDriver = () => {
             const name = document.getElementById('driver-name').value.trim();
             const taxi = document.getElementById('taxi-type').value.trim();
+            const taxi_no = document.getElementById('taxi-no').value.trim().toUpperCase();
+            const capacity = document.getElementById('taxi-capacity').value;
             const phone = document.getElementById('driver-phone').value.replace(/\D/g,'');
-            if(name && taxi) {
-                db.ref('drivers').push({ name, taxi, phone }).then(() => {
-                    alert("Driver Added!");
+
+            if(name && taxi && taxi_no) {
+                db.ref('drivers').push({ 
+                    name, 
+                    taxi, 
+                    taxi_no, 
+                    capacity, 
+                    phone 
+                }).then(() => {
+                    alert("Driver & Taxi Details Saved!");
                     document.getElementById('driver-name').value = "";
                     document.getElementById('taxi-type').value = "";
+                    document.getElementById('taxi-no').value = "";
+                    document.getElementById('taxi-capacity').value = "";
                     document.getElementById('driver-phone').value = "";
                 });
-            } else { alert("Please fill Name and Taxi Type"); }
+            } else { alert("Please enter Name, Model and Taxi Number!"); }
         };
 
         window.sendInvite = (u, p, ph) => {
@@ -141,7 +158,7 @@
         };
 
         window.deleteItem = (path, id) => { 
-            if(confirm(`Are you sure you want to remove this from ${path}?`)) {
+            if(confirm(`Remove this ${path === 'agents' ? 'Agent' : 'Driver'} permanently?`)) {
                 db.ref(`${path}/${id}`).remove(); 
             }
         };
